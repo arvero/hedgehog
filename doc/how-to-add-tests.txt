@@ -1,0 +1,305 @@
+#******************************************************************************
+#*
+#* (C) 2015 by arvero GmbH
+#*
+#*  arvero GmbH
+#*  Winchesterstraße 2
+#*  D-35394 Gießen
+#*
+#* ----------------------------------------------------------------------------
+#* Module      : how-to-add-tests.txt
+#*
+#* Function    : HOWTO of creating tests for hedgehog
+#*               
+#* Author      : Hubert
+#* Date        : 2015-07-22
+#*
+#*
+#* ----------------------------------------------------------------------------
+#*
+#******************************************************************************
+
+########################
+# Topics
+########################
+
+1. Introduction
+
+2. How to add a test case
+
+3. How to add a module test
+
+4. Useful methods and classes
+
+5. Examples
+
+########################
+# 1. Introduction
+########################
+
+This HOWTO explains all steps how to create a testcase with its module and how
+to plug them into the hedgehog test environment. If you haven't done it yet,
+please have a look at the "readme-first.txt" before you reading this. For
+creating a working test you have to do a small number of things described in
+the following topics.
+
+Here we get the class diagramm of hedgehog:
+
++-------------------+               +-------------------+             +--------------------+
+|     hedgehog      |               |    ModuleTest     |             |      Testcase      |
+|-------------------|               |-------------------|             |--------------------|
+| .                 |               | Enter <abstract>  |             | Get_Name()         |
+| // Attributes     |1          0..*| Leave <abstract>  |1        0..*| Process <abstract> |
+| .                 +---------------+ Process()         +-------------+                    |
+| // Methods        |               |                   |             |                    |
+| .                 |               |                   |             |                    |
+| .                 |               |                   |             |                    |
+|                   |               |                   |             |                    |
++-------------------+               +-------^-----------+             +----------^---------+
+                                            |derived                             |derived
+                               +------------+               +-------------------------+
+                   +-----------+------+              +------+---------+      +--------+---------+
+                   |  FTPModuleTest   |              | AppHelloTest   |      | FTPLoginTestcase |
+                   |------------------|              |----------------|      |------------------|
+                   |                  |              |                |      |                  |
+                   |                  |              |                |      |                  |
+                   |                  |              |                |      |                  |
+                   |                  |              |                |      |                  |
+                   |                  |              |                |      |                  |
+                   |                  |              |                |      |                  |
+                   +------------------+              +----------------+      +------------------+
+
+#########################################
+# 2. hedgehogs directory structure
+#########################################
+
+Inside of hedgehogs root folder each module test owns an own folder according
+to its name. Inside the module tests folder a subfolder 'testcases' is located
+that holds all testcases that are contained within the module test.
+
+The file tree below gives an short overview to the most important files and
+folders of hedgehog:
+
+    ├── doc                         contains some documentation user
+    │   ├── how-to-add-tests.txt    this document
+    │   └── readme-first.txt        main readme file
+    ├── module                      contains base class for all module-tests 
+    │   ├── moduletest.py           generic moduletest
+    │   └── testcases               contains base class for all testcases
+    │       ├── apptestcase.py      generic apptestcase to derive from
+    │       ├── testcase.py         generic base class to derive from
+    ├── moduleExample               contains the Example module test
+    │   ├── ressources              contains ressources needed by testcase
+    │   │   ├── exampletest         contains testcase ressources for example testcase
+    │   │   │   ├── main.c          test-application which want to be tested
+    │   │   │   └── Makefile        makefile for test-application
+    │   ├── testcases               contains all test-cases of Example module test
+    │   ├── test.py                 list of all testcases with their arguments
+    ├── moduleList.py               contains the list of all module tests
+    ├── prepareini.py               helping tool to setup .INI-config for test-cases
+    ├── singleton.py                helper file, required by hedgehog.py
+    ├── start.py                    starting point for execution
+    ├── hedgehog.config             configuration file for hedgehog
+    └── hedgehog.py                 hedgehog core
+
+NOTE: Each python package requires a file named __init__.py. This file 
+implements a constructor which is called when the package is going to be 
+loaded. For simplification all of these files are ommitted in the illustrated
+file tree from above.
+
+############################
+# 2. How to add a test case
+############################
+
+To add a new testcase to an existing module-test please follow the steps below:
+
+STEP 1: Create a new python file within the 'testcases' folder of the 
+        accordingly module test's folder.
+STEP 2: Import abstract testcase-class using "from module.testcases import 
+        testcase"
+STEP 3: Create an empty class and derive it from abstract testcase-class
+STEP 4: Implement process() method and copy the get_name() method into your
+        testcase-class. When implementing you could use methods or classes
+        supplied by hedgehog (see chapter 4). Note that the process method has
+        return 0 in case of success or -1 in case of failed test.
+STEP 5: Plug the testcase to the module test by adding the it to module-test's
+        'isself.testprocedure' array (see module-test python file).
+
+Short example:
+________________________________________________________________
+from module.testcases import testcase                           |
+                                                                |
+class MyTestCase(testcase.Testcase) :                           |
+  def __init__(self, name, arg1, arg2) :                        |
+    .                                                           |
+    .                                                           |
+    // initialize all parameters                                |
+    .                                                           |
+    .                                                           |
+                                                                |
+  def get_name(self):                                           |
+    return self.__name                                          |
+                                                                |
+  def process(self) :                                           |
+    .                                                           |
+    .                                                           |
+    // do your tests                                            |
+    .                                                           |
+    .                                                           |
+    .                                                           |
+________________________________________________________________|
+
+You also can derive from a generic class named "apptestcase". That class has
+already an implemented process method which is especially for observe and test
+applications. If you want that follow theses steps:
+
+STEP 1: Inside of "test.py" import abstract apptestcase-class using "from 
+        module.testcases import apptestcase".
+STEP 2: Use the class as it is.
+
+Short example:
+________________________________________________________________
+from module.testcases import apptestcase                        |
+from module import moduletest                                   |
+import hedgehog                                                 |
+                                                                |
+class Example(moduletest.ModuleTest) :                          |
+  def __init__(self) :                                          |
+    self.testprocedure =                                        |
+    [                                                           |
+      apptestcase.AppTestcase("<TestcaseName>",                 |
+                              "<AppSrcPath>",                   |
+                              "<AppBinPath>",                   |
+                              "<AppPathOnTarget>",              |
+                              ["<APP>", "<ARG>", "<ARRAY>"],    |
+                              Timeout),                         |
+                 .                                              |
+                 .                                              |
+                 .                                              |
+    ]                                                           |
+                                                                |
+  def enter(self):                                              |
+    pass                                                        |
+                                                                |
+  def leave(self) :                                             |
+    pass                                                        |
+________________________________________________________________|
+
+##############################
+# 3. How to add a module test
+##############################
+
+To add a new module test please follow the steps below:
+
+STEP 1: Create a new directory-structure according to the tree below,
+        where MyModule has to be replaced by your module test's name.
+
+          ├── moduleMyModule
+          │   └── testcases
+
+STEP 2: Create an empty file called '__init__.py' in new module test's
+        directory and new testcases directory.
+STEP 3: Create an empty file called 'test.py' in new module test's
+        directory.
+STEP 4: Import abstract module-class using "from module import moduletest"
+        in your module's python file.
+STEP 5: Create an empty class and derive it from abstract module-class
+STEP 6: Implement enter() and leave() method to do things before and after the
+        whole module
+STEP 7: Add testcases to the testcase-list in your module (the list called
+        "self.testprocedure")
+STEP 8: Add the module to the module-list in moduleList.py
+
+Short example:
+________________________________________________________________________
+from module import moduletest                                           |
+import prepareini                                                       |
+                                                                        |
+class MyModuleTest(moduletest.ModuleTest) :                             |
+  def __init__(self) :                                                  |
+    self.testprocedure =                                                |
+    [                                                                   |
+      // Adding here our testcases for your module                      |
+      testcases.myModuleTest.MyTestcase('MyTestCase','arg1', 'arg2'),   |
+      .                                                                 |
+      .                                                                 |
+    ]                                                                   |
+                                                                        |
+                                                                        |
+                                                                        |
+  def enter(self):                                                      |
+    .                                                                   |
+    .                                                                   |
+    // do something before entering in that module                      |
+    .                                                                   |
+    .                                                                   |
+                                                                        |
+  def leave(self):                                                      |
+    .                                                                   |
+    .                                                                   |
+    // do something when leavong in that module                         |
+    .                                                                   |
+    .                                                                   |
+________________________________________________________________________|
+
+#################################
+# 4. Useful methods and classes
+#################################
+
+There are a few methods which you can use in your testcase. Those are 
+implemented in the hedgehog-class and have to be imported with "import
+hedgehog" in your testcase.
+
+The following methods are available:
+
+Log Output
+==========
+- log(status, message), outputs an error/warning/info message to screen and 
+  log-file
+
+Remote File Access
+==================
+- fileSend(localPath, remotePath), sends a file to testee
+- fileRetrieve(localPath, remotePath), retrieves a file from testee
+
+Remote Shell Access
+===================
+- remoteShellSend(cmdline), sends a command string to tesee's shell
+- remoteShellReceive(egExpr, timeout), waits for a (regepxr) string from the
+  tesee's shell
+- remoteShellClearRecvBuffer(), clears local shell receive buffer
+
+For more information please have a closer look at "/hedgehog.py" or rather 
+the hedgehog-class.
+
+Remote .INI-File Access
+======================
+class PrepareIni is for changing settings in a .INI-File.
+
+With the first call of PrepareIni the .INI-File will be get from ftp-server of
+your target, stored into "/tmp"-directory and a copy created at your current
+directory. Every further call of PrepareIni will be operate with that copy. It
+can be used with attributes like 
+
+  PrepareIni(Section, [name, value, name, value], <IniPathOnTarget>, <IniName>)
+
+and establish a format in .INI-File like:
+
+[SECTION]
+name = value
+
+If you want to restore the original .INI-File, delete the .INI-File in
+"/tmp"-Folder and clear all modifications of PrepareIni-calls from before, use
+
+  prepareini.PrepareIni(None, None, <IniPathOnTarget>, <IniName>)
+
+(see moduleExample/test.py)
+
+########################
+# 5. Examples
+########################
+
+An example implementation of a apptestcase for an application that just print
+the well-known "Hello World" can be found under 
+"/moduleExample/ressources/exampletest/". An example implementation of a module
+and use of PrepareIni for an Exampletest is here "/moduleExample/test.py"
